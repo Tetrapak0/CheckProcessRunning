@@ -6,15 +6,40 @@
 #include <string>
 #include <cctype>
 #include <algorithm>
+#include <thread>
 
 #pragma warning(disable : 4996)
 
 using namespace std;
 
 bool wasrunning;
-string str;
+string processName;
 bool autoKill;
 bool killed = false;
+string title;
+
+void setAutoKill()
+{
+    while (true)
+    {
+        if ((GetKeyState(VK_CONTROL) & 0x8000) && (GetKeyState(VK_F3) & 0x8000))
+        {
+            if (!autoKill)
+            {
+                autoKill = true;
+                title = processName + " - " + "autokill = true" + " - CheckProcessRunning";
+                SetConsoleTitleA(title.c_str());
+            }
+            else
+            {
+                autoKill = false;
+                title = processName + " - " + "autokill = false" + " - CheckProcessRunning";
+                SetConsoleTitleA(title.c_str());
+            }
+            Sleep(1000);
+        }
+    }
+}
 
 bool IsProcessRunning(const TCHAR* const executableName) {
     PROCESSENTRY32 entry;
@@ -31,7 +56,7 @@ bool IsProcessRunning(const TCHAR* const executableName) {
         if (!_tcsicmp(entry.szExeFile, executableName)) {
             CloseHandle(snapshot);
             wasrunning = true;
-            string endCommand = "taskkill /f /im \"" + str + "\"";
+            string endCommand = "taskkill /f /im \"" + processName + "\"";
             if (!killed)
             {
                 if (autoKill)
@@ -67,37 +92,22 @@ int main()
     system("cls");
     cout << "WARNING!!!" << endl << "This application has highest level administrator privileges. End system processes at your own risk!" << endl << endl;
     cout << "Press CTRL + END to terminate all process instances, if any are running." << endl;
+    cout << "Press CTRL + F3 to toggle autokill." << endl;
     cout << "Enter the name of an executable, to check for its running instance: ";
-    getline(cin, str);
-    string choice;
-    do
-    {
-        cout << "Do you want to automatically terminate all process instances in case any are running? [Y/n]";
-        getline(cin, choice);
-        transform(choice.begin(), choice.end(), choice.begin(), [](unsigned char c) { return tolower(c); });
-        if (choice == "" || choice == "y")
-        {
-            autoKill = true;
-            break;
-        }
-        else if (choice == "n")
-        {
-            autoKill = false;
-            break;
-        }
-    } while (true);
-    string newtitle = str + " - CheckProcessRunning";
-    SetConsoleTitleA(newtitle.c_str());
-    TCHAR* param = new TCHAR[str.size() + 1];
-    param[str.size()] = 0;
-    copy(str.begin(), str.end(), param);
+    getline(cin, processName);
+    title = processName + " - CheckProcessRunning";
+    SetConsoleTitleA(title.c_str());
+    TCHAR* processNameParam = new TCHAR[processName.size() + 1];
+    processNameParam[processName.size()] = 0;
+    copy(processName.begin(), processName.end(), processNameParam);
     bool running;
+    thread toggleAutokill(setAutoKill);
     while (true)
     {
         auto now = chrono::system_clock::now();
         time_t t_c = chrono::system_clock::to_time_t(now);
         char* currentTime = ctime(&t_c);
-        running = IsProcessRunning(param);
+        running = IsProcessRunning(processNameParam);
         if (currentTime[strlen(currentTime) - 1] == '\n') currentTime[strlen(currentTime) - 1] = '\0';
         cout << currentTime << "\t" << running << endl;
         if (!running && wasrunning)
